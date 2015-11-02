@@ -1,0 +1,87 @@
+<head>
+  <title>Accounts Register</title>
+  <style>
+    .registry{
+      width: 90%;
+    }
+  </style>
+</head>
+
+<body>
+  {{> loginButtons}}
+  {{# if isInRole 'authorized_users,admin'}}
+  <div id="account-selector">
+    <label>Select an account:</label>
+    <select id="accounts-select">
+      {{#each selectable_accounts}}
+        {{#if isSelected}}<option selected="true">{{name}}</option>
+        {{else}}<option value="{{id}}">{{name}}</option>
+        {{/if}}
+      {{/each}}
+    </select>
+  </div>
+  <div id="account-details">
+    <label>Current Balance:</label> {{formatAmount current_balance}} ({{transaction_count}} transactions)
+  </div>
+  <div id="account-register-controls">
+    <form id="create_entry">
+      <table class="registry" id="register-entry" border="1">
+        <tr>
+          <th>R?</th>
+          <th>D?</th>
+          <th>Date</th>
+          <th>To/From</th>
+          <th>Amount</th>
+          <th>Memo</th>
+          <th>Tags</th>
+          <th>Ops</th>
+        </tr>
+        <tr>
+          <td><input type="checkbox" name="reconciled"/></td>
+          <td><select name="type"><option selected="true" value="debit">Y</option><option value="credit">N</option></select><span title="Is this a debit transaction?">(?)</span></td>
+          <td><input name="date_txt" type="text" value="{{now}}"/></td>
+          <td><input name="to_from" type="text"/></td>
+          <td><input type="text" name="amount"/></td>
+          <td><input type="text" name="memo"/></td>
+          <td><input type="text" name="tags_txt"/></td>
+          <td><button id="create_entry_submit">Add</button></td>
+        </tr>
+      </table>
+    </form>
+  </div>
+  <div id="account-register">
+    Existing Entries:
+    <table class="registry" id="register-table" border="1">
+      <tr>
+        <th>R?</th>
+        <th>D?</th>
+        <th>Date</th>
+        <th>To/From</th>
+        <th>Amount</th>
+        <th>Memo</th>
+        <th>Tags</th>
+        <th>Ops</th>
+      </tr>
+      {{#each current_entries}}
+        {{> register_entry}}
+      {{/each}}
+    </table>
+  </div>
+  {{else}}
+  <h1>Login as an authorized user, or get thee gone!</h1>
+  {{/if}}
+</body>
+
+<template name="register_entry">
+    <tr class="{{formatEntryClass type}}" id="{{_id}}">
+      <td><input class="reconciled" type="checkbox" checked="{{reconciled}}"/></td>
+      <td><input type="checkbox" disabled="true" checked="{{equals type 'debit'}}"/></td>
+      <td>{{formatDate date}}</td>
+      <td>{{to_from}}</td>
+      <td>{{formatSignedAmount amount}}</td>
+      <td>{{memo}}</td>
+      <td>{{#each tags}}{{this}} {{/each}}</td>
+      <td>X / + / -</td>
+    </tr>
+</template>
+
