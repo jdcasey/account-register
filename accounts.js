@@ -18,6 +18,23 @@ Meteor.methods({
 
     return RegisterEntries.insert(entry);
   },
+  removeRegisterEntry: function(id){
+    var loggedInUser = Meteor.user();
+    if (! loggedInUser || !Roles.userIsInRole(loggedInUser, ['authorized_users', 'admin'])) {
+      throw new Meteor.Error("not-authorized");
+    }
+
+    return RegisterEntries.remove(id);
+  },
+  updateRegisterEntry: function(id, entry){
+    var loggedInUser = Meteor.user();
+    if (! loggedInUser || !Roles.userIsInRole(loggedInUser, ['authorized_users', 'admin'])) {
+      throw new Meteor.Error("not-authorized");
+    }
+
+    console.log("Updated amount: " + entry.amount);
+    return RegisterEntries.update(id, {$set: entry});
+  },
   getAccounts: function(){
     var loggedInUser = Meteor.user();
     if (! loggedInUser || !Roles.userIsInRole(loggedInUser, ['authorized_users', 'admin'])) {
@@ -36,7 +53,70 @@ if (Meteor.isClient) {
   Meteor.subscribe('accounts');
   Meteor.subscribe('register_entries');
 
+  Meteor.startup(function(){
+    var loggedInUser = Meteor.user();
+    if (! loggedInUser || !Roles.userIsInRole(loggedInUser, ['authorized_users', 'admin'])) {
+      throw new Meteor.Error("not-authorized");
+    }
+
+    $(document).keyup(function(evt){
+      if ( evt.key === 'Escape'){
+        Meteor.escape();
+      }
+    });
+
+    Meteor.refreshAll();
+  });
+
+  Meteor.escape = function(){
+    Session.set("editing", null);
+  };
+
+  Meteor.loadEntries = function(){
+    var ca = Session.get("currentAccount");
+    var pg = Session.get("currentPage");
+    var perPg = Session.get("perPage");
+    Meteor.call("currentEntries", {accountId: ca, currentPage: pg, pageSize: perPg}, function(error, entries){
+      if ( error ){
+        console.log(error);
+      }else{
+        Session.set("currentEntries", entries);
+      }
+    });
+  };
+
+  Meteor.loadCalculatedDetails = function(){
+    var ca = Session.get("currentAccount");
+    Meteor.call('calculatedDetails', ca, function(error, details){
+      if ( error ){
+        console.log(error);
+      }else{
+        Session.set("currentBalance", details.balance);
+        Session.set("currentCount", details.count);
+      }
+    });
+  };
+
+  Meteor.refreshAll = function(){
+    Meteor.loadEntries();
+    Meteor.loadCalculatedDetails();
+  };
+
   Template.body.helpers({
+
+    notEditing: function(){
+      var editing = Session.get("editing");
+      if ( ! editing ){
+        return true;
+      }
+    },
+
+
+    hasUndo: function(){
+      return Session.get("undoDelete") != null;
+    },
+
+
     selectable_accounts: function(){
       Meteor.call('getAccounts', function(error, result){
         if ( error ){
@@ -49,51 +129,66 @@ if (Meteor.isClient) {
 
       return Session.get("accounts");
     },
+
+
     isSelected: function(){
       return this.id === Session.get("currentAccount");
     },
+
+
+    entries_per_pg: function(){
+      return Session.get("perPage");
+    },
+
+
+    current_page: function(){
+      return Session.get("currentPage") + 1;
+    },
+
+
     current_entries: function(){
-      var ca = Session.get("currentAccount");
-      var pg = Session.get("currentPage");
-      var perPg = Session.get("perPage");
-
-      Meteor.call("currentEntries", {accountId: ca, currentPage: pg, pageSize: perPg}, function(error, entries){
-        if ( error ){
-          console.log(error);
-        }else{
-          Session.set("currentEntries", entries);
-        }
-      });
-
+      Meteor.loadEntries();
       return Session.get("currentEntries");
     },
+
+
     current_balance: function(){
-      var ca = Session.get("currentAccount");
-      Meteor.call('calculatedDetails', ca, function(error, details){
-        if ( error ){
-          console.log(error);
-        }else{
-          Session.set("currentBalance", details.balance);
-        }
-      });
+      if ( Session.get("currentBalance") == null ){
+        Meteor.loadCalculatedDetails();
+      }
 
       return Session.get("currentBalance");
     },
+
+
     transaction_count: function(){
-      var ca = Session.get("currentAccount");
-      Meteor.call('calculatedDetails', ca, function(error, details){
-        if ( error ){
-          console.log(error);
-        }else{
-          Session.set("currentCount", details.count);
-        }
-      });
+      if ( Session.get("currentCount") == null ){
+        Meteor.loadCalculatedDetails();
+      }
 
       return Session.get("currentCount");
+    },
+
+
+    page_count: function(){
+      if ( Session.get("currentCount") == null ){
+        Meteor.loadCalculatedDetails();
+      }
+
+      var perPg = Session.get("perPage");
+      var count = Session.get("currentCount");
+      return Math.ceil(count / perPg);
     }
+
   });
 
   Template.register_entry.helpers({
+
+    editing: function(){
+      return _.isEqual(this._id, Session.get("editing"));
+    },
+
+
     formatEntryClass: function(type){
       if ( type == 'debit'){
         return "debit-entry";
@@ -102,6 +197,8 @@ if (Meteor.isClient) {
         return "credit-entry";
       }
     },
+
+
     formatSignedAmount: function(){
       if ( this.type == 'debit' ){
         return accounting.formatMoney(this.amount * -1);
@@ -109,27 +206,135 @@ if (Meteor.isClient) {
 
       return accounting.formatMoney(this.amount);
     }
+
   });
 
   Template.body.events({
+
+    'click #undo_delete': function(evt){
+      var undid = Session.get("undoDelete");
+      Meteor.call('addRegisterEntry', undid, function(error, result){
+        if ( error ){
+          console.log(error);
+        }
+        else{
+          Session.set("undoDelete", null);
+        }
+      });
+
+      Meteor.refreshAll();
+    },
+
+    'click .editable': function(event){
+      Session.set("editing", this._id);
+    },
+
+
+    'change #entries_per_pg': function(evt){
+      var entries = parseInt(evt.target.value);
+      console.log(entries + " entries per page");
+      Session.set("perPage", entries);
+      Meteor.refreshAll();
+    },
+
+
+    'change #page': function(evt){
+      var perPg = Session.get("perPage");
+      var count = Session.get("currentCount");
+      var pgCount = Math.ceil(count / perPg);
+
+      var pg = parseInt(evt.target.value) - 1;
+      if ( pg < 0 ){
+        pg = 0;
+      }
+
+      console.log("go to page " + (pg+1) + "/" + pgCount);
+      if ( pg +1 > pgCount ){
+        console.log("Reset page to end: " + pgCount);
+        evt.target.value = pgCount;
+        pg = pgCount -1;
+      }
+
+      Session.set("currentPage", pg);
+      Meteor.refreshAll();
+    },
+
+
     'change #accounts-select': function(event, template){
       var toLoad = $(event.target).val();
       Session.set("currentAccount", parseInt(toLoad));
+      Meteor.refreshAll();
+      Meteor.escape();
     },
-    'submit #create_entry': function(evt){
-      evt.preventDefault();
 
-      var ca = Session.get("currentAccount");
-      var dateParts = evt.target.date_txt.value.split(/- :/);
+
+    'click a.cancel_edit': function(evt){
+      evt.preventDefault();
+      Meteor.escape();
+    },
+
+
+    'submit #editing_entry': function(evt){
+      evt.preventDefault();
+      Meteor.escape();
+
+      var id = evt.target._id.value;
+      console.log("Raw date: '" + evt.target.date_txt.value + "'");
+      var d = evt.target.date_txt.value;
+      if ( d == "now"){
+        d = new Date();
+      }
+      else{
+        d = new Date(d);
+      }
+
       var entry = {
-        accountId: ca,
-        date: new Date(evt.target.date_txt.value),
+        date: d,
         reconciled: evt.target.reconciled.checked,
         to_from: evt.target.to_from.value,
-        type: evt.target.type.value,
+        type: (evt.target.type.checked ? 'debit' : 'credit'),
         amount: parseFloat(evt.target.amount.value),
         memo: evt.target.memo.value,
-        tags: evt.target.tags_txt.value.split(" ")
+        tags: evt.target.tags_txt.value.trim().split(" ")
+      };
+
+      console.log("Updating entry " + id);
+      Meteor.call("updateRegisterEntry", id, entry, function(error, result){
+        if ( error ){
+          console.log(error);
+        }
+        if ( result ){
+          console.log("Saved: " + result);
+        }
+      });
+
+      Meteor.refreshAll();
+    },
+
+
+    'submit #create_entry': function(evt){
+      evt.preventDefault();
+      Meteor.escape();
+
+      var ca = Session.get("currentAccount");
+
+      var d = evt.target.date_txt.value;
+      if ( d == "now"){
+        d = new Date();
+      }
+      else{
+        d = new Date(d);
+      }
+
+      var entry = {
+        accountId: ca,
+        date: d,
+        reconciled: evt.target.reconciled.checked,
+        to_from: evt.target.to_from.value,
+        type: (evt.target.type.checked ? 'debit' : 'credit'),
+        amount: parseFloat(evt.target.amount.value),
+        memo: evt.target.memo.value,
+        tags: evt.target.tags_txt.value.trim().split(" ")
       };
 
       console.log("Adding entry");
@@ -149,18 +354,31 @@ if (Meteor.isClient) {
       evt.target.amount.value = "";
       evt.target.memo.value = "";
       evt.target.tags_txt.value = " ";
+      evt.target.to_from.focus();
 
-      var pg = Session.get("currentPage");
-      var perPg = Session.get("perPage");
-      Meteor.call("currentEntries", {accountId: ca, currentPage: pg, pageSize: perPg}, function(error, entries){
+      Meteor.refreshAll();
+    },
+
+
+    'click .delete': function(evt){
+      Meteor.escape();
+      Meteor.call('removeRegisterEntry', this._id, function(error, result){
         if ( error ){
-          console.log(error);
-        }else{
-          Session.set("currentEntries", entries);
+          console.log( error );
+        }
+        if ( result ){
+          console.log(result + " removed.");
         }
       });
+
+      Session.set("undoDelete", this);
+
+      Meteor.refreshAll();
     },
+
+
     'click .reconciled': function(evt){
+      Session.set("editing", null);
       Meteor.call('invertReconciledBit', {'id': this._id, 'state': this.reconciled}, function(error, result){
         if ( error ){
           console.log(error);
@@ -172,10 +390,11 @@ if (Meteor.isClient) {
 
       this.reconciled = !this.reconciled;
     }
+
   });
 
   Template.registerHelper('formatDate', function(date) {
-    return moment(date).format('MM-DD-YYYY HH:mm');
+    return moment(date).format('MM/DD/YYYY HH:mm');
   });
 
   Template.registerHelper('formatAmount', function(amount) {
@@ -232,6 +451,7 @@ if (Meteor.isServer) {
   });
 
   Meteor.methods({
+
     calculatedDetails: function(accountId){
       var loggedInUser = Meteor.user();
       if (! loggedInUser || !Roles.userIsInRole(loggedInUser, ['authorized_users', 'admin'])) {
@@ -255,6 +475,7 @@ if (Meteor.isServer) {
 
       return {'balance': balance, 'count': count};
     },
+
 
     currentEntries: function(config){
       var loggedInUser = Meteor.user();
