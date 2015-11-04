@@ -1,0 +1,160 @@
+<body>
+  <div id="container" class="container-fluid">
+  <div class="row col-md-12">
+    <h2 class="text-right">Accounts Register</h2>
+  </div>
+  {{# if isInRole 'authorized_users,admin'}}
+  {{#if hasUndo}}
+  <div class="panel panel-success">
+    <a id="undo_delete">Undo delete</a>
+  </div>
+  {{/if}}
+  <div class="row col-md-12 control-panel">
+    <form id="acct_ctls">
+      <div class="row account-controls form-group form-inline">
+        <div class="col-md-2 controls-section text-right">
+          <div class="input-group">
+            <span class="input-group-addon" id="account-select-label">Account</span>
+            <select id="accounts-select" class="form-control" aria-describedby="account-select-label">
+              {{#each selectable_accounts}}
+                {{#if isSelected}}<option value="{{id}}" selected="true">{{name}}</option>
+                {{else}}<option value="{{id}}">{{name}}</option>
+                {{/if}}
+              {{/each}}
+            </select>
+          </div>
+        </div>
+        <div class="col-md-2 controls-section text-right">
+          <div class="input-group">
+            <span class="input-group-addon">Show</span>
+            <select id="entries_per_pg" class="form-control" aria-describedby="entries-per-pg-label">
+              {{#each entries_per_pg_selections}}
+                {{#if equals this entries_per_pg}}<option value="{{this}}" selected="true">{{this}}</option>
+                {{else}}<option value="{{this}}">{{this}}</option>
+                {{/if}}
+              {{/each}}
+            </select>
+            <!-- <input type="text" cols="3" id="entries_per_pg" value="{{entries_per_pg}}" aria-describedby="entries-per-pg-label"/> -->
+            <span class="input-group-addon" id="entries-per-pg-label">entries</span>
+          </div>
+        </div>
+        <div class="col-md-2 controls-section">
+          <div class="input-group">
+            <span class="input-group-addon">Pg</span>
+            <select id="page" class="form-control" aria-describedby="current-page-label">
+              {{#each page_selections}}
+                {{#if equals this current_page}}<option selected="true" value="{{this}}">{{this}}</option>
+                {{else}}<option value="{{this}}">{{this}}</option>
+                {{/if}}
+              {{/each}}
+            </select>
+            <!-- <input type="text" cols="3" id="page" value="{{current_page}}" aria-describedby="current-page-label"/> -->
+            <span class="input-group-addon" id="current-page-label">/ {{page_count}})</span>
+          </div>
+        </div>
+        <div id="account-details" class="col-md-2 text-right">
+          <div class="input-group">
+            <span id="current-balance-label" class="input-group-addon">Balance:</span>
+            <span aria-describedby="current-balance-label" class="form-control">{{formatAmount current_balance}}</span>
+          </div>
+        </div>
+        <div id="account-details" class="col-md-1">
+          <div class="input-group">
+            <span class="form-control" aria-describedby="tx-count-label">{{transaction_count}}</span>
+            <span id="tx-count-label" class="input-group-addon">transactions</span>
+          </div>
+        </div>
+        <div class="col-md-offset-1 col-md-2 text-right">
+          {{> loginButtons}}
+        </div>
+      </div>
+    </form>
+  </div>
+  <!-- {{#if notEditing}} -->
+  <div id="account-register-controls" class="col-md-12">
+    <div class="panel panel-default">
+    <div class="panel-heading">Enter new transactions:</div>
+    <form id="create_entry" class="form-group form-inline">
+      <table class="table table-condensed registry" id="register-entry">
+        <thead>
+        <tr>
+          <th>Rec?</th>
+          <th>Debit?</th>
+          <th>Date</th>
+          <th>To/From</th>
+          <th>Amount</th>
+          <th>Memo</th>
+          <th>Tags</th>
+          <th>Fn</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><input type="checkbox" name="reconciled"/></td>
+          <td><input type="checkbox" name="type" checked="true"/></td>
+          <td><input name="date_txt" type="text" value="{{now}}"/></td>
+          <td><input name="to_from" type="text"/></td>
+          <td><input type="text" name="amount"/></td>
+          <td><input type="text" name="memo"/></td>
+          <td><input type="text" name="tags_txt"/></td>
+          <td>
+            <button id="create_entry_submit" type="submit" title="Save" class="save_edit glyphicon glyphicon-floppy-save"></button>
+          </td>
+        </tr>
+        </tbody>
+      </table>
+    </form>
+    </div>
+  </div>
+  <!-- {{/if}} -->
+  <div id="account-register" class="col-md-12">
+    <div class="panel panel-default">
+    <div class="panel-heading">Existing transactions:</div>
+    <form id="editing_entry" class="form-group form-inline">
+    <table class="table table-condensed table-hover registry" id="register-table">
+      <thead>
+      <tr>
+        <th>Rec?</th>
+        <th>Debit?</th>
+        <th>Date</th>
+        <th>To/From</th>
+        <th>Amount</th>
+        <th>Memo</th>
+        <th>Tags</th>
+        <th>Fn</th>
+      </tr>
+      </thead>
+      <tbody>
+      {{#each current_entries}}
+        {{> register_entry}}
+      {{/each}}
+      </tbody>
+    </table>
+    </form>
+    </div>
+  </div>
+  {{else}}
+  <div class="col-md-12">
+    <div class="jumbotron">
+      <h1>Unauthorized Use is Prohibited</h1>
+      <p>Login or get thee gone!</p>
+      {{> loginButtons}}
+    </div>
+  </div>
+<!--   <div class="row col-md-12 form-group">
+    <div class="col-md-2">
+    </div>
+  </div>
+ -->  
+  {{/if}}
+  </div>
+
+  <!-- jQuery (necessary for Bootstrap's JavaScript plugins) -->
+  <script src="https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"></script>
+  <!-- Include all compiled plugins (below), or include individual files as needed -->
+  <!-- <script src="js/bootstrap.min.js"></script> -->
+  <script src="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/js/bootstrap.min.js" integrity="sha512-K1qjQ+NcF2TYO/eI3M6v8EiNYZfA95pQumfvcVrTHtwQVDG+aHRqLi/ETn2uB+1JqwYqVG3LIvdm9lj6imS/pQ==" crossorigin="anonymous"></script>
+</body>
+
+
+

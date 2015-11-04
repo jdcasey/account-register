@@ -1,0 +1,27 @@
+<template name="register_entry">
+  <tr class="register_entry {{formatEntryClass type}}" id="{{_id}}">
+    {{#if editing}}
+      <td><input type="hidden" name="_id" value="{{_id}}"/><input class="reconciled" type="checkbox" name="reconciled" checked="{{reconciled}}"/></td>
+      <td><input type="checkbox" name="type" checked="{{equals type 'debit'}}"/></td>
+      <td><input type="text" name="date_txt" value="{{formatDate date}}"/></td>
+      <td><input type="text" name="to_from" value="{{to_from}}"/></td>
+      <td><input type="text" name="amount" value="{{amount}}"/></td>
+      <td><input type="text" name="memo" value="{{memo}}"/></td>
+      <td><input type="text" name="tags_txt" value="{{#each tags}}{{this}} {{/each}}"/></td>
+      <td>
+        <button type="button" title="Delete" class="delete glyphicon glyphicon-remove-sign"></button>
+        <button type="submit" title="Save" class="save_edit glyphicon glyphicon-floppy-save"></button>
+        <button type="button" title="Cancel" class="cancel_edit glyphicon glyphicon-floppy-remove"></button>
+      </td>
+    {{else}}
+      <td><input class="reconciled" type="checkbox" checked="{{reconciled}}"/></td>
+      <td><input type="checkbox" disabled="true" checked="{{equals type 'debit'}}"/></td>
+      <td class="editable">{{formatDate date}}</td>
+      <td class="editable">{{to_from}}</td>
+      <td class="editable">{{formatSignedAmount amount}}</td>
+      <td class="editable">{{memo}}</td>
+      <td class="editable">{{#each tags}}{{this}} {{/each}}</td>
+      <td><button type="button" title="Delete" class="delete glyphicon glyphicon-remove-sign"></button></td>
+    {{/if}}
+  </tr>
+</template>
